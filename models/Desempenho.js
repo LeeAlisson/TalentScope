@@ -26,6 +26,15 @@ class Desempenho {
     const result = await this.db.query(sql, [idSimulacao])
     return result[0] || null
   }
+
+  async listarPorUsuario(id_usuario) {
+    return await this.db.query(
+      `SELECT d.* FROM desempenho d
+       JOIN simulacoes s ON d.id_simulacao = s.id
+       WHERE s.id_usuario = ?`,
+      [id_usuario]
+    );
+  }
 }
 
 module.exports = Desempenho

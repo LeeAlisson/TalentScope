@@ -1,6 +1,9 @@
 const Desempenho = require("../models/Desempenho")
 const Simulacao = require("../models/Simulacao")
 
+const desempenhoModel = new Desempenho()
+const simulacaoModel = new Simulacao()
+
 class DesempenhoController {
   static async criar(req, res) {
     try {
@@ -19,7 +22,7 @@ class DesempenhoController {
         })
       }
 
-      const simulacao = await Simulacao.buscarPorId(id_simulacao)
+      const simulacao = await simulacaoModel.buscarPorId(id_simulacao)
       if (!simulacao) {
         return res.status(404).json({
           erro: "Simulação não encontrada",
@@ -32,21 +35,20 @@ class DesempenhoController {
         })
       }
 
-      const desempenhoExistente = await Desempenho.buscarPorSimulacao(id_simulacao)
+      const desempenhoExistente = await desempenhoModel.buscarPorSimulacao(id_simulacao)
       if (desempenhoExistente) {
         return res.status(400).json({
           erro: "Desempenho já registrado para esta simulação",
         })
       }
 
-      const desempenhoId = await Desempenho.criar({
+      const desempenhoId = await desempenhoModel.criar({
         nota,
         feedback,
-        id_usuario,
         id_simulacao,
       })
 
-      const desempenho = await Desempenho.buscarPorId(desempenhoId)
+      const desempenho = await desempenhoModel.buscarPorId(desempenhoId)
 
       res.status(201).json({
         sucesso: true,
@@ -64,7 +66,7 @@ class DesempenhoController {
   static async listarMeus(req, res) {
     try {
       const id_usuario = req.usuario.id
-      const desempenhos = await Desempenho.listarPorUsuario(id_usuario)
+      const desempenhos = await desempenhoModel.listarPorUsuario(id_usuario)
 
       res.json({
         sucesso: true,
@@ -81,7 +83,7 @@ class DesempenhoController {
   static async buscarPorId(req, res) {
     try {
       const { id } = req.params
-      const desempenho = await Desempenho.buscarPorId(id)
+      const desempenho = await desempenhoModel.buscarPorId(id)
 
       if (!desempenho) {
         return res.status(404).json({
@@ -89,7 +91,8 @@ class DesempenhoController {
         })
       }
 
-      if (desempenho.id_usuario !== req.usuario.id) {
+      const simulacao = await simulacaoModel.buscarPorId(desempenho.id_simulacao)
+      if (!simulacao || simulacao.id_usuario !== req.usuario.id) {
         return res.status(403).json({
           erro: "Acesso negado",
         })
@@ -101,69 +104,6 @@ class DesempenhoController {
       })
     } catch (error) {
       console.error("Erro ao buscar desempenho:", error)
-      res.status(500).json({
-        erro: "Erro interno do servidor",
-      })
-    }
-  }
-
-  static async estatisticas(req, res) {
-    try {
-      const id_usuario = req.usuario.id
-      const stats = await Desempenho.estatisticasUsuario(id_usuario)
-
-      res.json({
-        sucesso: true,
-        estatisticas: stats,
-      })
-    } catch (error) {
-      console.error("Erro ao buscar estatísticas:", error)
-      res.status(500).json({
-        erro: "Erro interno do servidor",
-      })
-    }
-  }
-
-  static async atualizar(req, res) {
-    try {
-      const { id } = req.params
-      const { nota, feedback } = req.body
-
-      const desempenho = await Desempenho.buscarPorId(id)
-      if (!desempenho) {
-        return res.status(404).json({
-          erro: "Desempenho não encontrado",
-        })
-      }
-
-      if (desempenho.id_usuario !== req.usuario.id) {
-        return res.status(403).json({
-          erro: "Acesso negado",
-        })
-      }
-
-      if (nota !== undefined && (nota < 0 || nota > 10)) {
-        return res.status(400).json({
-          erro: "Nota deve estar entre 0 e 10",
-        })
-      }
-
-      const sucesso = await Desempenho.atualizar(id, { nota, feedback })
-      if (!sucesso) {
-        return res.status(400).json({
-          erro: "Erro ao atualizar desempenho",
-        })
-      }
-
-      const desempenhoAtualizado = await Desempenho.buscarPorId(id)
-
-      res.json({
-        sucesso: true,
-        mensagem: "Desempenho atualizado com sucesso",
-        desempenho: desempenhoAtualizado,
-      })
-    } catch (error) {
-      console.error("Erro ao atualizar desempenho:", error)
       res.status(500).json({
         erro: "Erro interno do servidor",
       })

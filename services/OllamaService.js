@@ -1,7 +1,6 @@
 class OllamaService {
   static async gerarPergunta(params) {
     const { setor, senioridade, tipo, tecnologias } = params
-
     const tecnologiasStr = Array.isArray(tecnologias) ? tecnologias.join(", ") : tecnologias
 
     let prompt = ""
@@ -19,7 +18,6 @@ Gere da seguinte forma:
 - Titulo;
 - Pergunta
 - Exemplo (sem etapas e conclusão, quero exemplos simples)`
-
     } else if (tipo === "codigo") {
       prompt = `Crie um desafio de programação para uma vaga de ${setor} nível ${senioridade}.
 
@@ -44,10 +42,9 @@ Gere:
 
   static async avaliarResposta(params) {
     const { pergunta, resposta, setor, senioridade, tecnologias } = params
-
     const tecnologiasStr = Array.isArray(tecnologias) ? tecnologias.join(", ") : (tecnologias || "Não especificado");
 
-    const prompt = `Analise esta resposta para uma vaga de ${setor} nível ${senioridade}:
+    const prompt = `Você é um avaliador técnico. Analise a resposta do candidato para uma vaga de ${setor} nível ${senioridade}.
 
 PERGUNTA:
 ${pergunta}
@@ -57,38 +54,36 @@ ${resposta}
 
 Tecnologias envolvidas: ${tecnologiasStr}
 
-Forneça uma análise abrangente com:
+Compare a resposta do candidato com a pergunta e avalie:
+- Pontos fortes
+- Áreas para melhoria
+- Precisão técnica (se está correto tecnicamente)
+- Comunicação (clareza e objetividade)
+- Completude (se respondeu tudo que foi pedido)
 
-1. PONTOS FORTES: O que o candidato fez bem
-2. ÁREAS PARA MELHORIA: Pontos específicos para trabalhar
-3. PRECISÃO TÉCNICA: Quão correto está o conteúdo técnico
-4. COMUNICAÇÃO: Quão bem explicaram seu raciocínio
-5. COMPLETUDE: Abordaram todas as partes da pergunta
+Com base nessa análise, gere OBRIGATORIAMENTE:
+- Um feedback detalhado, construtivo e específico sobre a resposta.
+- Uma nota de 0 a 10 (nunca deixe em branco, nunca coloque 0 a menos que a resposta seja totalmente errada ou vazia).
 
-Então forneça:
-- NOTA: Avalie de 0-10 (seja realista e justo)
-- TAXA DE COMPATIBILIDADE: Porcentagem (0-100%) indicando prontidão para o trabalho
-- FEEDBACK ESPECÍFICO: Conselhos práticos para melhoria
+Agora, devolva **apenas** UM dos formatos abaixo (não escreva nada além disso):
 
-Seja construtivo, específico e útil. Foque no crescimento e aprendizado.
-
-Formate como JSON:
+1. JSON válido:
 {
-  "nota": 7.5,
-  "feedback": "feedback detalhado aqui",
-}`
+  "nota": <número de 0 a 10, obrigatório, nunca deixe em branco>,
+  "feedback": "<feedback detalhado e construtivo, obrigatório>"
+}
 
-    const resposta_ollama = await this.chamarOllama("codellama:latest", prompt)
+OU
 
-    try {
-      return JSON.parse(resposta_ollama)
-    } catch (error) {
-      console.error("Falha ao analisar resposta do Ollama como JSON:", error)
-      return {
-        nota: 0,
-        feedback: resposta_ollama
-      }
-    }
+2. Usando tags:
+<nota>8.5</nota>
+<feedback>Seu feedback detalhado aqui.</feedback>
+
+Não escreva nada além do JSON ou das tags. Não adicione explicações, comentários ou texto fora desses formatos.
+`
+
+    const resposta_ollama = await this.chamarOllama("llama3:latest", prompt)
+    return this.parseAvaliacao(resposta_ollama)
   }
 
   static async chamarOllama(modelo, prompt) {
@@ -137,6 +132,32 @@ Formate como JSON:
       return response.ok
     } catch (error) {
       return false
+    }
+  }
+
+  static parseAvaliacao(resposta) {
+    try {
+      const obj = JSON.parse(resposta)
+      if (typeof obj.nota !== "undefined" && typeof obj.feedback !== "undefined") {
+        return { nota: obj.nota, feedback: obj.feedback }
+      }
+    } catch (e) {}
+
+    const notaTag = resposta.match(/<nota>([0-9]+(\.[0-9]+)?)<\/nota>/i)
+    const feedbackTag = resposta.match(/<feedback>([\s\S]*?)<\/feedback>/i)
+    if (notaTag && feedbackTag) {
+      return {
+        nota: parseFloat(notaTag[1]),
+        feedback: feedbackTag[1].trim()
+      }
+    }
+
+    const notaMatch = resposta.match(/nota[:\s]*([0-9]+(\.[0-9]+)?)/i)
+    const feedbackMatch = resposta.match(/feedback[:\s]*([\s\S]*)/i)
+
+    return {
+      nota: notaMatch ? parseFloat(notaMatch[1]) : 0,
+      feedback: feedbackMatch ? feedbackMatch[1].trim() : resposta
     }
   }
 }

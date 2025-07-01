@@ -149,6 +149,14 @@ class SimulacaoController {
         tecnologias: tecnologiasNomes,
       })
 
+      const Desempenho = require("../models/Desempenho")
+      const desempenhoModel = new Desempenho()
+      await desempenhoModel.criar(
+        avaliacao.nota,
+        avaliacao.feedback,
+        simulacao.id
+      )
+
       res.json({
         sucesso: true,
         mensagem: "Resposta enviada com sucesso",
